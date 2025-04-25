@@ -58,15 +58,10 @@ export default function Home() {
   );
 
   const handleCall = useCallback(
-    async (socketId: string) => {
+    async (socketId: string, stream: MediaStream) => {
       if (handlePeerExists(socketId)) return;
+
       const peer = handleCreatePeerConnections();
-      // add stream to the peer
-      // in future create a function to create a dummy strea
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
       if (!stream) return;
       await handleAddtrackToStream(peer, stream);
       const offer = await handleCreateOffer(peer);
@@ -101,7 +96,7 @@ export default function Home() {
   );
 
   const handleAcceptAnswer = useCallback(
-    (socketId: string, answer: RTCSessionDescriptionInit) => {
+    async (socketId: string, answer: RTCSessionDescriptionInit) => {
       const peer = handlePeerExists(socketId);
       if (peer) {
         peer.peer.setRemoteDescription(answer);
@@ -123,9 +118,14 @@ export default function Home() {
 
   useEffect(() => {
     if (!socket) return;
-    const handleCallAllUsers = (users: string[]) => {
+    const handleCallAllUsers = async (users: string[]) => {
+      if (!users.length) return;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
       users.forEach(async (userId) => {
-        await handleCall(userId);
+        await handleCall(userId, stream);
       });
     };
     const handleOfferReceived = async ({
@@ -136,11 +136,11 @@ export default function Home() {
       sentBy: string;
     }) => {
       if (handlePeerExists(sentBy)) return;
-      const peer = handleCreatePeerConnections();
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: false,
       });
+      const peer = handleCreatePeerConnections();
       await handleAddtrackToStream(peer, stream);
       const answer = await handleCreateAnswer(offer, peer);
       peerConnections.push({ peer, socketId: sentBy });
