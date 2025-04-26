@@ -16,6 +16,48 @@ export default function Home() {
   const { current: remoteStreams } = useRef<RemoteStreams[]>([]);
   const [streams, setStreams] = useState<RemoteStreams[]>([]);
   const socket = useSocket();
+  const localStream = useRef<MediaStream | null>(null);
+  const [stream, setStream] = useState<null | MediaStream>(null);
+  const [cameraFeed, setCameraFeed] = useState<null | MediaStreamTrack>(null);
+
+  const handleGetDummyVideoTrack = useCallback(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const dummyVideoStream = canvas.captureStream(10); // 10 fps
+    return dummyVideoStream;
+  }, []);
+
+  const handleDummyStream = useCallback((): Promise<MediaStream> => {
+    return new Promise((resolve) => {
+      const AudioCTX = new AudioContext();
+      const buffer = AudioCTX.createBuffer(1, 1, 22050); // 1 frame of silence
+      const source = AudioCTX.createBufferSource();
+      source.buffer = buffer;
+      source.connect(AudioCTX.destination);
+      source.start();
+
+      const dst = AudioCTX.createMediaStreamDestination();
+      source.connect(dst);
+      const audio = dst.stream.getAudioTracks()[0];
+      // Create a dummy video track (blank frame)
+      const canvas = document.createElement("canvas");
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      const dummyVideoStream = handleGetDummyVideoTrack();
+      resolve(new MediaStream([audio, dummyVideoStream.getVideoTracks()[0]]));
+    });
+  }, [handleGetDummyVideoTrack]);
 
   const handleCreatePeerConnections = useCallback(() => {
     const peer = new RTCPeerConnection();
@@ -28,23 +70,6 @@ export default function Home() {
     return offer;
   }, []);
 
-  const handleCreateAnswer = useCallback(
-    async (offer: RTCSessionDescriptionInit, peer: RTCPeerConnection) => {
-      await peer.setRemoteDescription(offer);
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-      return answer;
-    },
-    []
-  );
-
-  const handlePeerExists = useCallback(
-    (socketId: string) => {
-      return peerConnections.find((peer) => peer.socketId === socketId);
-    },
-    [peerConnections]
-  );
-
   const handleAddtrackToStream = useCallback(
     async (peer: RTCPeerConnection, stream: MediaStream) => {
       await new Promise((resolve) => {
@@ -55,6 +80,28 @@ export default function Home() {
       });
     },
     []
+  );
+
+  const handleCreateAnswer = useCallback(
+    async (
+      offer: RTCSessionDescriptionInit,
+      peer: RTCPeerConnection,
+      stream: MediaStream
+    ) => {
+      await peer.setRemoteDescription(offer);
+      await handleAddtrackToStream(peer, stream);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      return answer;
+    },
+    [handleAddtrackToStream]
+  );
+
+  const handlePeerExists = useCallback(
+    (socketId: string) => {
+      return peerConnections.find((peer) => peer.socketId === socketId);
+    },
+    [peerConnections]
   );
 
   const handleCall = useCallback(
@@ -75,6 +122,7 @@ export default function Home() {
         }
       });
       peer.addEventListener("track", (e) => {
+        console.log(e.streams);
         const streamExists = remoteStreams.find(
           (stream) => stream.socketId === socketId
         );
@@ -105,6 +153,43 @@ export default function Home() {
     [handlePeerExists]
   );
 
+  const handleTurnOnCamera = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false,
+    });
+    const videoTracks = stream.getVideoTracks()[0];
+    setCameraFeed(videoTracks);
+    peerConnections.forEach(async (peer) => {
+      const sender = peer.peer.getSenders();
+      const videoSender = sender.find(
+        (sender) => sender.track?.kind === videoTracks.kind
+      );
+      if (videoSender) {
+        if (cameraFeed) {
+          const dummStream = await handleDummyStream();
+          const dummyVideoTrack = dummStream.getVideoTracks()[0];
+          videoSender.replaceTrack(dummyVideoTrack);
+          localStream.current?.removeTrack(
+            localStream.current.getVideoTracks()[0]
+          );
+          localStream.current?.addTrack(dummyVideoTrack);
+          setStream(stream);
+          setCameraFeed(videoTracks);
+          setCameraFeed(null);
+        } else {
+          videoSender.replaceTrack(videoTracks);
+          localStream.current?.removeTrack(
+            localStream.current.getVideoTracks()[0]
+          );
+          localStream.current?.addTrack(videoTracks);
+          setStream(stream);
+          setCameraFeed(videoTracks);
+        }
+      }
+    });
+  };
+
   useEffect(() => {
     console.log("Test");
     if (!socket) return;
@@ -120,10 +205,9 @@ export default function Home() {
     if (!socket) return;
     const handleCallAllUsers = async (users: string[]) => {
       if (!users.length) return;
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      const stream = await handleDummyStream();
+      if (!localStream.current) localStream.current = stream;
+      setStream(localStream.current);
       users.forEach(async (userId) => {
         await handleCall(userId, stream);
       });
@@ -136,13 +220,11 @@ export default function Home() {
       sentBy: string;
     }) => {
       if (handlePeerExists(sentBy)) return;
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+      const stream = await handleDummyStream();
+      if (!localStream.current) localStream.current = stream;
+      setStream(localStream.current);
       const peer = handleCreatePeerConnections();
-      await handleAddtrackToStream(peer, stream);
-      const answer = await handleCreateAnswer(offer, peer);
+      const answer = await handleCreateAnswer(offer, peer, stream);
       peerConnections.push({ peer, socketId: sentBy });
       if (socket) {
         socket.emit("sending-answer", { answer, sentTo: sentBy });
@@ -153,6 +235,7 @@ export default function Home() {
         }
       });
       peer.addEventListener("track", (e) => {
+        console.log(e.streams);
         const streamExists = remoteStreams.find(
           (stream) => stream.socketId === sentBy
         );
@@ -188,6 +271,7 @@ export default function Home() {
     handleCall,
     handleCreateAnswer,
     handleCreatePeerConnections,
+    handleDummyStream,
     handlePeerExists,
     peerConnections,
     remoteStreams,
@@ -196,6 +280,15 @@ export default function Home() {
 
   return (
     <main>
+      <button onClick={handleTurnOnCamera}>Turn On Camera</button>
+      <video
+        ref={(vid) => {
+          if (vid) {
+            vid.srcObject = stream;
+          }
+        }}
+        className="border"
+      ></video>
       {streams.map((stream) => {
         return (
           <div key={stream.socketId} className="h-80 aspect-video">
