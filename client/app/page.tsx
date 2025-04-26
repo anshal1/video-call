@@ -19,6 +19,7 @@ export default function Home() {
   const localStream = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<null | MediaStream>(null);
   const [cameraFeed, setCameraFeed] = useState<null | MediaStreamTrack>(null);
+  const isCaller = useRef(false);
 
   const handleGetDummyVideoTrack = useCallback(() => {
     const canvas = document.createElement("canvas");
@@ -109,18 +110,6 @@ export default function Home() {
       if (handlePeerExists(socketId)) return;
 
       const peer = handleCreatePeerConnections();
-      if (!stream) return;
-      await handleAddtrackToStream(peer, stream);
-      const offer = await handleCreateOffer(peer);
-      peerConnections.push({ peer, socketId });
-      if (socket) {
-        socket.emit("seding-offer", { offer, sendTo: socketId });
-      }
-      peer.addEventListener("icecandidate", (e) => {
-        if (socket) {
-          socket.emit("ice-candiate", e.candidate, socketId);
-        }
-      });
       peer.addEventListener("track", (e) => {
         console.log(e.streams);
         const streamExists = remoteStreams.find(
@@ -130,6 +119,22 @@ export default function Home() {
           remoteStreams.push({ stream: e.streams[0], socketId: socketId });
           setStreams([...remoteStreams]);
         }
+      });
+      peer.addEventListener("icecandidate", (e) => {
+        if (socket) {
+          socket.emit("ice-candiate", e.candidate, socketId);
+        }
+      });
+      if (!stream) return;
+      await handleAddtrackToStream(peer, stream);
+      const offer = await handleCreateOffer(peer);
+      peerConnections.push({ peer, socketId });
+      if (socket) {
+        socket.emit("seding-offer", { offer, sendTo: socketId });
+      }
+
+      peer.addEventListener("negotiationneeded", async () => {
+        console.log("negotiationneeded");
       });
     },
     [
@@ -158,6 +163,10 @@ export default function Home() {
       video: true,
       audio: false,
     });
+    if (!localStream.current) {
+      localStream.current = stream;
+      return;
+    }
     const videoTracks = stream.getVideoTracks()[0];
     setCameraFeed(videoTracks);
     peerConnections.forEach(async (peer) => {
@@ -174,7 +183,7 @@ export default function Home() {
             localStream.current.getVideoTracks()[0]
           );
           localStream.current?.addTrack(dummyVideoTrack);
-          setStream(stream);
+          setStream(new MediaStream(localStream.current!.getTracks()));
           setCameraFeed(videoTracks);
           setCameraFeed(null);
         } else {
@@ -183,7 +192,7 @@ export default function Home() {
             localStream.current.getVideoTracks()[0]
           );
           localStream.current?.addTrack(videoTracks);
-          setStream(stream);
+          setStream(new MediaStream(localStream.current!.getTracks()));
           setCameraFeed(videoTracks);
         }
       }
@@ -205,11 +214,12 @@ export default function Home() {
     if (!socket) return;
     const handleCallAllUsers = async (users: string[]) => {
       if (!users.length) return;
+      isCaller.current = true;
       const stream = await handleDummyStream();
       if (!localStream.current) localStream.current = stream;
       setStream(localStream.current);
       users.forEach(async (userId) => {
-        await handleCall(userId, stream);
+        await handleCall(userId, localStream.current!);
       });
     };
     const handleOfferReceived = async ({
@@ -221,19 +231,10 @@ export default function Home() {
     }) => {
       if (handlePeerExists(sentBy)) return;
       const stream = await handleDummyStream();
+
       if (!localStream.current) localStream.current = stream;
       setStream(localStream.current);
       const peer = handleCreatePeerConnections();
-      const answer = await handleCreateAnswer(offer, peer, stream);
-      peerConnections.push({ peer, socketId: sentBy });
-      if (socket) {
-        socket.emit("sending-answer", { answer, sentTo: sentBy });
-      }
-      peer.addEventListener("icecandidate", (e) => {
-        if (socket) {
-          socket.emit("ice-candiate", e.candidate, sentBy);
-        }
-      });
       peer.addEventListener("track", (e) => {
         console.log(e.streams);
         const streamExists = remoteStreams.find(
@@ -244,6 +245,16 @@ export default function Home() {
           setStreams([...remoteStreams]);
         }
       });
+      peer.addEventListener("icecandidate", (e) => {
+        if (socket) {
+          socket.emit("ice-candiate", e.candidate, sentBy);
+        }
+      });
+      const answer = await handleCreateAnswer(offer, peer, localStream.current);
+      peerConnections.push({ peer, socketId: sentBy });
+      if (socket) {
+        socket.emit("sending-answer", { answer, sentTo: sentBy });
+      }
     };
     const handleAddIceCandidate = async (
       iceCandiate: RTCIceCandidate | null,
