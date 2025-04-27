@@ -1,5 +1,6 @@
 "use client";
 import { useSocket } from "@/app/context/socket";
+import Image from "next/image";
 import Link from "next/link";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -21,6 +22,7 @@ export default function Room() {
   const [stream, setStream] = useState<null | MediaStream>(null);
   const [cameraFeed, setCameraFeed] = useState<null | MediaStreamTrack>(null);
   const isCaller = useRef(false);
+  const [isCamerOn, setIsCameraOn] = useState(false);
 
   const handleGetDummyVideoTrack = useCallback(() => {
     const canvas = document.createElement("canvas");
@@ -168,13 +170,13 @@ export default function Room() {
       video: true,
       audio: false,
     });
+    const videoTracks = stream.getVideoTracks()[0];
     if (!localStream.current) {
       localStream.current = stream;
       setStream(stream);
+      setCameraFeed(videoTracks);
       return;
     }
-    const videoTracks = stream.getVideoTracks()[0];
-    setCameraFeed(videoTracks);
     peerConnections.current.forEach(async (peer) => {
       const sender = peer.peer.getSenders();
       const videoSender = sender.find(
@@ -185,12 +187,14 @@ export default function Room() {
           const dummStream = await handleDummyStream();
           const dummyVideoTrack = dummStream.getVideoTracks()[0];
           videoSender.replaceTrack(dummyVideoTrack);
+          localStream.current?.getVideoTracks()[0].stop();
           localStream.current?.removeTrack(
             localStream.current.getVideoTracks()[0]
           );
+          stream.getVideoTracks()[0].stop();
           localStream.current?.addTrack(dummyVideoTrack);
           setStream(new MediaStream(localStream.current!.getTracks()));
-          setCameraFeed(videoTracks);
+          setIsCameraOn(false);
           setCameraFeed(null);
         } else {
           videoSender.replaceTrack(videoTracks);
@@ -200,6 +204,7 @@ export default function Room() {
           localStream.current?.addTrack(videoTracks);
           setStream(new MediaStream(localStream.current!.getTracks()));
           setCameraFeed(videoTracks);
+          setIsCameraOn(true);
         }
       }
     });
@@ -335,36 +340,65 @@ export default function Room() {
   }, []);
 
   return (
-    <main>
-      <Link href={"/"}>Go Home</Link>
-      <button onClick={handleTurnOnCamera}>Turn On Camera</button>
-      <video
-        ref={(vid) => {
-          if (vid) {
-            vid.srcObject = stream;
-          }
-        }}
-        className="border"
-        autoPlay
-        muted
-        playsInline
-      ></video>
-      {streams.map((stream) => {
-        return (
-          <div key={stream.socketId} className="h-80 aspect-video">
-            <video
-              playsInline
-              autoPlay
-              ref={(vid) => {
-                if (vid) {
-                  vid.srcObject = stream.stream;
-                }
-              }}
-              muted={false}
-            ></video>
-          </div>
-        );
-      })}
-    </main>
+    <>
+      {/* <Link href={"/"}>Go Home</Link> */}
+      {/* <button onClick={handleTurnOnCamera}>Turn On Camera</button> */}
+
+      <main className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
+        <div className="w-[550px] h-[400px] rounded-2xl overflow-hidden">
+          <video
+            ref={(vid) => {
+              if (vid) {
+                vid.srcObject = stream;
+              }
+            }}
+            autoPlay
+            muted
+            className="w-full h-full block object-fill bg-red-500"
+          ></video>
+        </div>
+        {streams.map((stream) => {
+          return (
+            <div
+              className="w-[550px] h-[500px] aspect-video"
+              key={stream.socketId}
+            >
+              <video
+                autoPlay
+                ref={(vid) => {
+                  if (vid) {
+                    vid.srcObject = stream.stream;
+                  }
+                }}
+                muted={false}
+                className="w-full h-full"
+              ></video>
+            </div>
+          );
+        })}
+        <div className="absolute bottom-0 left-0 w-full h-32 flex items-center justify-center gap-x-12">
+          <button
+            onClick={handleTurnOnCamera}
+            className="cursor-pointer p-6 rounded-full border"
+          >
+            {isCamerOn ? (
+              <Image
+                src="/camera-on.png"
+                alt="turn on camera"
+                width={48}
+                height={48}
+              />
+            ) : (
+              <Image
+                src="/camera-off.png"
+                alt="turn on camera"
+                width={48}
+                height={48}
+              />
+            )}
+          </button>
+        </div>
+      </main>
+    </>
   );
 }
