@@ -246,10 +246,14 @@ export default function Room() {
         );
         if (audioSender) {
           audioSender.replaceTrack(audioTrack);
+        } else {
+          peer.peer.addTrack(audioTrack);
         }
-        localStream.current?.removeTrack(
-          localStream.current.getAudioTracks()[0]
-        );
+        if (localStream.current?.getAudioTracks()[0]) {
+          localStream.current?.removeTrack(
+            localStream.current.getAudioTracks()[0]
+          );
+        }
         localStream.current?.addTrack(audioTrack);
         setStream(new MediaStream(localStream.current!.getTracks()));
         setIsMicOn(true);
@@ -390,7 +394,7 @@ export default function Room() {
   return (
     <>
       <main className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
-        <div className="w-[550px] h-[400px] rounded-2xl overflow-hidden">
+        <div className="md:w-[550px] h-[400px] rounded-2xl overflow-hidden">
           <video
             ref={(vid) => {
               if (vid) {
@@ -405,7 +409,7 @@ export default function Room() {
         {streams.map((stream) => {
           return (
             <div
-              className="w-[550px] h-[400px] rounded-2xl overflow-hidden"
+              className="md:w-[550px] h-[400px] rounded-2xl overflow-hidden"
               key={stream.socketId}
             >
               <video
