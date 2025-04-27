@@ -1,6 +1,7 @@
 "use client";
 import { useSocket } from "@/app/context/socket";
 import Image from "next/image";
+import Link from "next/link";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 interface Peers {
@@ -440,7 +441,7 @@ export default function Room() {
   return (
     <>
       <main className="grid lg:grid-cols-3 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
-        <div className="lg:w-[550px] h-[400px] rounded-2xl overflow-hidden">
+        <div className="lg:w-[550px] h-[400px] rounded-2xl overflow-hidden border">
           <video
             ref={(vid) => {
               if (vid) {
@@ -513,6 +514,9 @@ export default function Room() {
               alt="Share Screen"
             />
           </button>
+          <Link href={"/"} className="cursor-pointer p-6 rounded-full border">
+            <Image src="/home.png" width={48} height={48} alt="Share Screen" />
+          </Link>
         </div>
       </main>
     </>
