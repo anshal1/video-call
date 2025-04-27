@@ -51,10 +51,17 @@ io.on("connection", (socket) => {
         io.to(sentTo).emit("ice-candidate", iceCandidate, socket.id);
       }
     );
+    socket.on("user-left", () => {
+      console.log("User Left 2", socket.id);
+      socket.to("video").emit("user-left", socket.id);
+      socket.leave("video");
+      roomUsers = roomUsers.filter((id) => id !== socket.id);
+    });
   });
   socket.on("disconnect", () => {
     roomUsers = roomUsers.filter((id) => id !== socket.id);
     socket.leave("video");
+    socket.to("video").emit("user-left", socket.id);
     console.log("User Left", socket.id);
   });
 });
