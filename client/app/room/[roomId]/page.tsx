@@ -502,8 +502,16 @@ export default function Room() {
               <Image src="/mute.png" width={48} height={48} alt="unmute mic" />
             )}
           </button>
-          <button onClick={handleScreenShare} className="cursor-pointer">
-            Share Screen
+          <button
+            onClick={handleScreenShare}
+            className="cursor-pointer p-6 rounded-full border"
+          >
+            <Image
+              src="/screen-share.png"
+              width={48}
+              height={48}
+              alt="Share Screen"
+            />
           </button>
         </div>
       </main>
