@@ -262,6 +262,52 @@ export default function Room() {
     }
   };
 
+  const handleScreenShare = async () => {
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+    });
+    const screenVideoTrack = screenStream.getVideoTracks()[0];
+    peerConnections.current.forEach((peer) => {
+      const sender = peer.peer.getSenders();
+      const videoSender = sender.find(
+        (sender) => sender.track?.kind === screenVideoTrack.kind
+      );
+      if (videoSender) {
+        videoSender.replaceTrack(screenVideoTrack);
+      }
+      localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
+      localStream.current?.addTrack(screenVideoTrack);
+      setStream(new MediaStream(localStream.current!.getTracks()));
+    });
+    screenVideoTrack.onended = () => {
+      peerConnections.current.forEach(async (peer) => {
+        const sender = peer.peer.getSenders();
+        const videoSender = sender.find(
+          (sender) => sender.track?.kind === screenVideoTrack.kind
+        );
+        if (videoSender) {
+          if (cameraFeed) {
+            videoSender.replaceTrack(cameraFeed);
+            localStream.current?.removeTrack(
+              localStream.current.getVideoTracks()[0]
+            );
+            localStream.current?.addTrack(cameraFeed);
+            setStream(new MediaStream(localStream.current!.getTracks()));
+          } else {
+            const dummyStream = await handleDummyStream();
+            const dummyVideoTrack = dummyStream.getVideoTracks()[0];
+            videoSender.replaceTrack(dummyVideoTrack);
+            localStream.current?.removeTrack(
+              localStream.current.getVideoTracks()[0]
+            );
+            localStream.current?.addTrack(dummyVideoTrack);
+            setStream(new MediaStream(localStream.current!.getTracks()));
+          }
+        }
+      });
+    };
+  };
+
   useEffect(() => {
     console.log("Test");
     if (!socket) return;
@@ -455,6 +501,9 @@ export default function Room() {
             ) : (
               <Image src="/mute.png" width={48} height={48} alt="unmute mic" />
             )}
+          </button>
+          <button onClick={handleScreenShare} className="cursor-pointer">
+            Share Screen
           </button>
         </div>
       </main>
