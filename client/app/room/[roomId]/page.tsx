@@ -1,7 +1,6 @@
 "use client";
 import { useSocket } from "@/app/context/socket";
 import Image from "next/image";
-import Link from "next/link";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 interface Peers {
@@ -21,8 +20,10 @@ export default function Room() {
   const localStream = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<null | MediaStream>(null);
   const [cameraFeed, setCameraFeed] = useState<null | MediaStreamTrack>(null);
+  const [audioFeed, setAudioFeed] = useState<null | MediaStreamTrack>(null);
   const isCaller = useRef(false);
   const [isCamerOn, setIsCameraOn] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(false);
 
   const handleGetDummyVideoTrack = useCallback(() => {
     const canvas = document.createElement("canvas");
@@ -210,6 +211,53 @@ export default function Room() {
     });
   };
 
+  const handleToggleMic = async () => {
+    const audio = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: true,
+    });
+    const audioTrack = audio.getAudioTracks()[0];
+    if (audioFeed) {
+      audioTrack.stop();
+      stream?.getAudioTracks()[0].stop();
+      const dummyStream = await handleDummyStream();
+      const dummyAudioTrack = dummyStream.getAudioTracks()[0];
+      peerConnections.current.forEach((peer) => {
+        const senders = peer.peer.getSenders();
+        const audioSender = senders.find(
+          (sender) => sender.track?.kind === audioTrack.kind
+        );
+        if (audioSender) {
+          audioSender.replaceTrack(dummyAudioTrack);
+        }
+        localStream.current?.removeTrack(
+          localStream.current.getAudioTracks()[0]
+        );
+        localStream.current?.addTrack(dummyAudioTrack);
+        setStream(new MediaStream(localStream.current!.getTracks()));
+        setIsMicOn(false);
+        setAudioFeed(null);
+      });
+    } else {
+      peerConnections.current.forEach((peer) => {
+        const senders = peer.peer.getSenders();
+        const audioSender = senders.find(
+          (sender) => sender.track?.kind === audioTrack.kind
+        );
+        if (audioSender) {
+          audioSender.replaceTrack(audioTrack);
+        }
+        localStream.current?.removeTrack(
+          localStream.current.getAudioTracks()[0]
+        );
+        localStream.current?.addTrack(audioTrack);
+        setStream(new MediaStream(localStream.current!.getTracks()));
+        setIsMicOn(true);
+        setAudioFeed(audioTrack);
+      });
+    }
+  };
+
   useEffect(() => {
     console.log("Test");
     if (!socket) return;
@@ -341,9 +389,6 @@ export default function Room() {
 
   return (
     <>
-      {/* <Link href={"/"}>Go Home</Link> */}
-      {/* <button onClick={handleTurnOnCamera}>Turn On Camera</button> */}
-
       <main className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
         <div className="w-[550px] h-[400px] rounded-2xl overflow-hidden">
           <video
@@ -354,13 +399,13 @@ export default function Room() {
             }}
             autoPlay
             muted
-            className="w-full h-full block object-fill bg-red-500"
+            className="w-full h-full block object-fill"
           ></video>
         </div>
         {streams.map((stream) => {
           return (
             <div
-              className="w-[550px] h-[500px] aspect-video"
+              className="w-[550px] h-[400px] rounded-2xl overflow-hidden"
               key={stream.socketId}
             >
               <video
@@ -371,7 +416,7 @@ export default function Room() {
                   }
                 }}
                 muted={false}
-                className="w-full h-full"
+                className="w-full h-full block object-fill"
               ></video>
             </div>
           );
@@ -395,6 +440,16 @@ export default function Room() {
                 width={48}
                 height={48}
               />
+            )}
+          </button>
+          <button
+            className="cursor-pointer p-6 rounded-full border"
+            onClick={handleToggleMic}
+          >
+            {isMicOn ? (
+              <Image src="/unmute.png" width={48} height={48} alt="Mute Mic" />
+            ) : (
+              <Image src="/mute.png" width={48} height={48} alt="unmute mic" />
             )}
           </button>
         </div>
