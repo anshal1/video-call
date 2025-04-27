@@ -165,6 +165,7 @@ export default function Home() {
     });
     if (!localStream.current) {
       localStream.current = stream;
+      setStream(stream);
       return;
     }
     const videoTracks = stream.getVideoTracks()[0];
@@ -299,6 +300,9 @@ export default function Home() {
           }
         }}
         className="border"
+        autoPlay
+        muted
+        playsInline
       ></video>
       {streams.map((stream) => {
         return (
