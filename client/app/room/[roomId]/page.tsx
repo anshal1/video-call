@@ -439,8 +439,8 @@ export default function Room() {
 
   return (
     <>
-      <main className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
-        <div className="md:w-[550px] h-[400px] rounded-2xl overflow-hidden">
+      <main className="grid lg:grid-cols-3 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
+        <div className="lg:w-[550px] h-[400px] rounded-2xl overflow-hidden">
           <video
             ref={(vid) => {
               if (vid) {
@@ -455,7 +455,7 @@ export default function Room() {
         {streams.map((stream) => {
           return (
             <div
-              className="md:w-[550px] h-[400px] rounded-2xl overflow-hidden"
+              className="lg:w-[550px] h-[400px] rounded-2xl overflow-hidden"
               key={stream.socketId}
             >
               <video
@@ -471,7 +471,7 @@ export default function Room() {
             </div>
           );
         })}
-        <div className="absolute bottom-0 left-0 w-full h-32 flex items-center justify-center gap-x-12">
+        <div className="fixed bottom-0 left-0 w-full h-32 flex items-center justify-center gap-x-12">
           <button
             onClick={handleTurnOnCamera}
             className="cursor-pointer p-6 rounded-full border"
