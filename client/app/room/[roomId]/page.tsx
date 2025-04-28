@@ -178,8 +178,13 @@ export default function Room() {
     });
     const videoTracks = stream.getVideoTracks()[0];
     if (!localStream.current) {
-      localStream.current = stream;
-      setStream(stream);
+      const dummyStream = await handleDummyStream();
+      const newStream = new MediaStream([
+        dummyStream.getAudioTracks()[0],
+        videoTracks,
+      ]);
+      localStream.current = newStream;
+      setStream(newStream);
       setCameraFeed(videoTracks);
       setIsCameraOn(true);
       return;
@@ -189,6 +194,7 @@ export default function Room() {
       const videoSender = sender.find(
         (sender) => sender.track?.kind === videoTracks.kind
       );
+      console.log(videoSender);
       if (videoSender) {
         if (cameraFeed) {
           const dummStream = await handleDummyStream();
@@ -225,9 +231,14 @@ export default function Room() {
     const audioTrack = audio.getAudioTracks()[0];
     if (!localStream.current) {
       console.log("No stream");
+      const dummyVideoTrack = handleGetDummyVideoTrack();
+      const newStream = new MediaStream([
+        audioTrack,
+        dummyVideoTrack.getVideoTracks()[0],
+      ]);
       setAudioFeed(audioTrack);
-      localStream.current = audio;
-      setStream(audio);
+      localStream.current = newStream;
+      setStream(newStream);
       setIsMicOn(true);
       return;
     }
