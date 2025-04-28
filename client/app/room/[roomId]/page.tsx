@@ -159,9 +159,12 @@ export default function Room() {
 
   const handleAcceptAnswer = useCallback(
     async (socketId: string, answer: RTCSessionDescriptionInit) => {
+      console.log("Accepting Answer");
       const peer = handlePeerExists(socketId);
       if (peer) {
-        peer.peer.setRemoteDescription(answer);
+        if (!peer.peer.remoteDescription) {
+          await peer.peer.setRemoteDescription(answer);
+        }
       }
     },
     [handlePeerExists]
@@ -177,6 +180,7 @@ export default function Room() {
       localStream.current = stream;
       setStream(stream);
       setCameraFeed(videoTracks);
+      setIsCameraOn(true);
       return;
     }
     peerConnections.current.forEach(async (peer) => {
@@ -218,8 +222,17 @@ export default function Room() {
       audio: true,
     });
     const audioTrack = audio.getAudioTracks()[0];
+    if (!localStream.current) {
+      console.log("No stream");
+      setAudioFeed(audioTrack);
+      localStream.current = audio;
+      setStream(audio);
+      setIsMicOn(true);
+      return;
+    }
     if (audioFeed) {
-      audioTrack.stop();
+      console.log("Audio Feed");
+      audioFeed.stop();
       stream?.getAudioTracks()[0].stop();
       const dummyStream = await handleDummyStream();
       const dummyAudioTrack = dummyStream.getAudioTracks()[0];
@@ -240,6 +253,7 @@ export default function Room() {
         setAudioFeed(null);
       });
     } else {
+      console.log("No Audio Feed");
       peerConnections.current.forEach((peer) => {
         const senders = peer.peer.getSenders();
         const audioSender = senders.find(
@@ -247,14 +261,11 @@ export default function Room() {
         );
         if (audioSender) {
           audioSender.replaceTrack(audioTrack);
-        } else {
-          peer.peer.addTrack(audioTrack);
         }
-        if (localStream.current?.getAudioTracks()[0]) {
-          localStream.current?.removeTrack(
-            localStream.current.getAudioTracks()[0]
-          );
-        }
+
+        localStream.current?.removeTrack(
+          localStream.current.getAudioTracks()[0]
+        );
         localStream.current?.addTrack(audioTrack);
         setStream(new MediaStream(localStream.current!.getTracks()));
         setIsMicOn(true);
@@ -325,6 +336,7 @@ export default function Room() {
     const handleCallAllUsers = async (users: string[]) => {
       if (!users.length) return;
       isCaller.current = true;
+      peerConnections.current = [];
       const stream = await handleDummyStream();
       if (!localStream.current) localStream.current = stream;
       setStream(localStream.current);
@@ -393,15 +405,15 @@ export default function Room() {
     };
     socket.on("all-users", handleCallAllUsers);
     socket.on("offer-received", handleOfferReceived);
-    socket.on("answer-received", handleAcceptAnswer);
+
     socket.on("ice-candidate", handleAddIceCandidate);
     socket.on("user-left", handleRemoveUser);
     return () => {
       if (socket) {
         socket.off("all-users", handleCallAllUsers);
         socket.off("offer-received", handleOfferReceived);
-        socket.off("answer-received", handleAcceptAnswer);
         socket.off("user-left", handleRemoveUser);
+        socket.off("ice-candidate", handleAddIceCandidate);
       }
     };
   }, [
@@ -416,6 +428,13 @@ export default function Room() {
     remoteStreams,
     socket,
   ]);
+
+  useEffect(() => {
+    if (socket) socket.on("answer-received", handleAcceptAnswer);
+    return () => {
+      if (socket) socket.off("answer-received", handleAcceptAnswer);
+    };
+  }, [handleAcceptAnswer, socket]);
 
   useEffect(() => {
     const peers = peerConnections;
