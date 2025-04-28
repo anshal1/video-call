@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 interface Peers {
   peer: RTCPeerConnection;
   socketId: string;
+  remoteDescription?: boolean;
 }
 interface RemoteStreams {
   stream: MediaStream;
@@ -66,7 +67,9 @@ export default function Room() {
   }, [handleGetDummyVideoTrack]);
 
   const handleCreatePeerConnections = useCallback(() => {
-    const peer = new RTCPeerConnection();
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
     return peer;
   }, []);
 
@@ -162,9 +165,7 @@ export default function Room() {
       console.log("Accepting Answer");
       const peer = handlePeerExists(socketId);
       if (peer) {
-        if (!peer.peer.remoteDescription) {
-          await peer.peer.setRemoteDescription(answer);
-        }
+        await peer.peer.setRemoteDescription(answer);
       }
     },
     [handlePeerExists]
@@ -336,7 +337,6 @@ export default function Room() {
     const handleCallAllUsers = async (users: string[]) => {
       if (!users.length) return;
       isCaller.current = true;
-      peerConnections.current = [];
       const stream = await handleDummyStream();
       if (!localStream.current) localStream.current = stream;
       setStream(localStream.current);
