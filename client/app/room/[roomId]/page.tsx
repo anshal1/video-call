@@ -252,6 +252,7 @@ export default function Room() {
         const audioSender = senders.find(
           (sender) => sender.track?.kind === audioTrack.kind
         );
+        console.log("Sending Dummy Audio", audioSender);
         if (audioSender) {
           audioSender.replaceTrack(dummyAudioTrack);
         }
@@ -268,6 +269,7 @@ export default function Room() {
         const audioSender = senders.find(
           (sender) => sender.track?.kind === audioTrack.kind
         );
+        console.log("Sending Actual Audio", audioSender);
         if (audioSender) {
           audioSender.replaceTrack(audioTrack);
         }
