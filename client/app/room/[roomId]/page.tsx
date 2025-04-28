@@ -171,7 +171,7 @@ export default function Room() {
     [handlePeerExists]
   );
 
-  const handleTurnOnCamera = async () => {
+  const handleTurnOnCamera = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: false,
@@ -189,7 +189,9 @@ export default function Room() {
       setIsCameraOn(true);
       return;
     }
-    peerConnections.current.forEach(async (peer) => {
+    const dummStream = await handleDummyStream();
+    const dummyVideoTrack = dummStream.getVideoTracks()[0];
+    peerConnections.current.forEach((peer) => {
       const sender = peer.peer.getSenders();
       const videoSender = sender.find(
         (sender) => sender.track?.kind === videoTracks.kind
@@ -197,33 +199,30 @@ export default function Room() {
       console.log(videoSender);
       if (videoSender) {
         if (cameraFeed) {
-          const dummStream = await handleDummyStream();
-          const dummyVideoTrack = dummStream.getVideoTracks()[0];
           videoSender.replaceTrack(dummyVideoTrack);
-          localStream.current?.getVideoTracks()[0].stop();
-          localStream.current?.removeTrack(
-            localStream.current.getVideoTracks()[0]
-          );
-          stream.getVideoTracks()[0].stop();
-          localStream.current?.addTrack(dummyVideoTrack);
-          setStream(new MediaStream(localStream.current!.getTracks()));
-          setIsCameraOn(false);
-          setCameraFeed(null);
         } else {
           videoSender.replaceTrack(videoTracks);
-          localStream.current?.removeTrack(
-            localStream.current.getVideoTracks()[0]
-          );
-          localStream.current?.addTrack(videoTracks);
-          setStream(new MediaStream(localStream.current!.getTracks()));
-          setCameraFeed(videoTracks);
-          setIsCameraOn(true);
         }
       }
     });
-  };
+    if (cameraFeed) {
+      localStream.current?.getVideoTracks()[0].stop();
+      localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
+      stream.getVideoTracks()[0].stop();
+      localStream.current?.addTrack(dummyVideoTrack);
+      setStream(new MediaStream(localStream.current!.getTracks()));
+      setIsCameraOn(false);
+      setCameraFeed(null);
+    } else {
+      localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
+      localStream.current?.addTrack(videoTracks);
+      setStream(new MediaStream(localStream.current!.getTracks()));
+      setCameraFeed(videoTracks);
+      setIsCameraOn(true);
+    }
+  }, [cameraFeed, handleDummyStream]);
 
-  const handleToggleMic = async () => {
+  const handleToggleMic = useCallback(async () => {
     const audio = await navigator.mediaDevices.getUserMedia({
       video: false,
       audio: true,
@@ -256,14 +255,12 @@ export default function Room() {
         if (audioSender) {
           audioSender.replaceTrack(dummyAudioTrack);
         }
-        localStream.current?.removeTrack(
-          localStream.current.getAudioTracks()[0]
-        );
-        localStream.current?.addTrack(dummyAudioTrack);
-        setStream(new MediaStream(localStream.current!.getTracks()));
-        setIsMicOn(false);
-        setAudioFeed(null);
       });
+      localStream.current?.removeTrack(localStream.current.getAudioTracks()[0]);
+      localStream.current?.addTrack(dummyAudioTrack);
+      setStream(new MediaStream(localStream.current!.getTracks()));
+      setIsMicOn(false);
+      setAudioFeed(null);
     } else {
       console.log("No Audio Feed");
       peerConnections.current.forEach((peer) => {
@@ -274,17 +271,14 @@ export default function Room() {
         if (audioSender) {
           audioSender.replaceTrack(audioTrack);
         }
-
-        localStream.current?.removeTrack(
-          localStream.current.getAudioTracks()[0]
-        );
-        localStream.current?.addTrack(audioTrack);
-        setStream(new MediaStream(localStream.current!.getTracks()));
-        setIsMicOn(true);
-        setAudioFeed(audioTrack);
       });
+      localStream.current?.removeTrack(localStream.current.getAudioTracks()[0]);
+      localStream.current?.addTrack(audioTrack);
+      setStream(new MediaStream(localStream.current!.getTracks()));
+      setIsMicOn(true);
+      setAudioFeed(audioTrack);
     }
-  };
+  }, [audioFeed, handleDummyStream, handleGetDummyVideoTrack, stream]);
 
   const handleScreenShare = async () => {
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
