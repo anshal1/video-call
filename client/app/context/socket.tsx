@@ -10,7 +10,7 @@ export const SocketContext = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<null | Socket>(null);
 
   useEffect(() => {
-    const socketConnection = io("http://localhost:5000");
+    const socketConnection = io(process.env.NEXT_PUBLIC_SIGNAL_SERVER);
     setSocket(socketConnection);
     return () => {
       socketConnection.disconnect();
