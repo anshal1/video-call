@@ -70,6 +70,6 @@ app.get("/", (req, res) => {
   res.send("Hello World");
 });
 
-server.listen(5000, () => {
-  console.log("Server Running On Port 3000");
+server.listen(process.env.PORT || 5000, () => {
+  console.log("Server Running On Port", process.env.PORT || 5000);
 });
