@@ -119,11 +119,6 @@ export default function Room() {
 
       const peer = handleCreatePeerConnections();
       peerConnections.current.push({ peer, socketId });
-      peer.addEventListener("icecandidate", (e) => {
-        if (socket) {
-          socket.emit("ice-candiate", e.candidate, socketId);
-        }
-      });
       peer.addEventListener("track", (e) => {
         console.log(e.streams);
         const streamExists = remoteStreams.current.find(
@@ -135,6 +130,11 @@ export default function Room() {
             socketId: socketId,
           });
           setStreams([...remoteStreams.current]);
+        }
+      });
+      peer.addEventListener("icecandidate", (e) => {
+        if (socket) {
+          socket.emit("ice-candiate", e.candidate, socketId);
         }
       });
 
@@ -162,9 +162,10 @@ export default function Room() {
 
   const handleAcceptAnswer = useCallback(
     async (socketId: string, answer: RTCSessionDescriptionInit) => {
-      console.log("Accepting Answer");
       const peer = handlePeerExists(socketId);
-      if (peer) {
+      if (peer && !peer.remoteDescription) {
+        console.log("Accepting Answer");
+        peer.remoteDescription = true;
         await peer.peer.setRemoteDescription(answer);
       }
     },
@@ -227,13 +228,13 @@ export default function Room() {
       video: false,
       audio: true,
     });
+    const dummyStream = await handleDummyStream();
     const audioTrack = audio.getAudioTracks()[0];
     if (!localStream.current) {
       console.log("No stream");
-      const dummyVideoTrack = handleGetDummyVideoTrack();
       const newStream = new MediaStream([
         audioTrack,
-        dummyVideoTrack.getVideoTracks()[0],
+        dummyStream.getVideoTracks()[0],
       ]);
       setAudioFeed(audioTrack);
       localStream.current = newStream;
@@ -241,46 +242,33 @@ export default function Room() {
       setIsMicOn(true);
       return;
     }
+    peerConnections.current.forEach((peer) => {
+      const audioSender = peer.peer
+        .getSenders()
+        .find((sender) => sender.track?.kind === audioTrack.kind);
+      if (!audioSender) return peer.peer.addTrack(audioTrack);
+      if (audioFeed) {
+        audioSender.replaceTrack(dummyStream.getAudioTracks()[0]);
+      } else {
+        audioSender.replaceTrack(audioTrack);
+      }
+    });
     if (audioFeed) {
-      console.log("Audio Feed");
+      localStream.current.getAudioTracks()[0].stop();
       audioFeed.stop();
-      stream?.getAudioTracks()[0].stop();
-      const dummyStream = await handleDummyStream();
-      const dummyAudioTrack = dummyStream.getAudioTracks()[0];
-      peerConnections.current.forEach((peer) => {
-        const senders = peer.peer.getSenders();
-        const audioSender = senders.find(
-          (sender) => sender.track?.kind === audioTrack.kind
-        );
-        console.log("Sending Dummy Audio", audioSender);
-        if (audioSender) {
-          audioSender.replaceTrack(dummyAudioTrack);
-        }
-      });
-      localStream.current?.removeTrack(localStream.current.getAudioTracks()[0]);
-      localStream.current?.addTrack(dummyAudioTrack);
-      setStream(new MediaStream(localStream.current!.getTracks()));
-      setIsMicOn(false);
+      localStream.current.removeTrack(localStream.current.getAudioTracks()[0]);
+      localStream.current.addTrack(dummyStream.getAudioTracks()[0]);
+      setStream(new MediaStream(localStream.current.getTracks()));
       setAudioFeed(null);
+      setIsMicOn(false);
     } else {
-      console.log("No Audio Feed");
-      peerConnections.current.forEach((peer) => {
-        const senders = peer.peer.getSenders();
-        const audioSender = senders.find(
-          (sender) => sender.track?.kind === audioTrack.kind
-        );
-        console.log("Sending Actual Audio", audioSender);
-        if (audioSender) {
-          audioSender.replaceTrack(audioTrack);
-        }
-      });
-      localStream.current?.removeTrack(localStream.current.getAudioTracks()[0]);
-      localStream.current?.addTrack(audioTrack);
-      setStream(new MediaStream(localStream.current!.getTracks()));
-      setIsMicOn(true);
+      localStream.current.removeTrack(localStream.current.getAudioTracks()[0]);
+      localStream.current.addTrack(audioTrack);
+      setStream(new MediaStream(localStream.current.getTracks()));
       setAudioFeed(audioTrack);
+      setIsMicOn(true);
     }
-  }, [audioFeed, handleDummyStream, handleGetDummyVideoTrack, stream]);
+  }, [audioFeed, handleDummyStream]);
 
   const handleScreenShare = async () => {
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -361,16 +349,13 @@ export default function Room() {
     }) => {
       if (handlePeerExists(sentBy)) return;
       const stream = await handleDummyStream();
-
-      if (!localStream.current) localStream.current = stream;
+      if (!localStream.current) {
+        console.log("No stream found, creating a dummy stream");
+        localStream.current = stream;
+      }
       setStream(localStream.current);
       const peer = handleCreatePeerConnections();
       peerConnections.current.push({ peer, socketId: sentBy });
-      peer.addEventListener("icecandidate", (e) => {
-        if (socket) {
-          socket.emit("ice-candiate", e.candidate, sentBy);
-        }
-      });
       peer.addEventListener("track", (e) => {
         console.log(e.streams);
         const streamExists = remoteStreams.current.find(
@@ -382,6 +367,11 @@ export default function Room() {
             socketId: sentBy,
           });
           setStreams([...remoteStreams.current]);
+        }
+      });
+      peer.addEventListener("icecandidate", (e) => {
+        if (socket) {
+          socket.emit("ice-candiate", e.candidate, sentBy);
         }
       });
 
