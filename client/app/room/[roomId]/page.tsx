@@ -255,7 +255,7 @@ export default function Room() {
     });
     if (audioFeed) {
       localStream.current.getAudioTracks()[0].stop();
-      audioFeed.stop();
+      audio.getAudioTracks()[0].stop();
       localStream.current.removeTrack(localStream.current.getAudioTracks()[0]);
       localStream.current.addTrack(dummyStream.getAudioTracks()[0]);
       setStream(new MediaStream(localStream.current.getTracks()));
@@ -335,7 +335,6 @@ export default function Room() {
       const stream = await handleDummyStream();
       if (!localStream.current) localStream.current = stream;
       setStream(localStream.current);
-      console.log(peerConnections.current);
       users.forEach(async (userId) => {
         await handleCall(userId, localStream.current!);
       });
@@ -482,9 +481,21 @@ export default function Room() {
                     vid.srcObject = stream.stream;
                   }
                 }}
-                muted={false}
+                muted={true}
                 className="w-full h-full block object-fill"
               ></video>
+              <audio
+                controls
+                autoPlay
+                className="hidden"
+                ref={(aud) => {
+                  if (aud) {
+                    aud.srcObject = new MediaStream([
+                      stream.stream.getAudioTracks()[0],
+                    ]);
+                  }
+                }}
+              ></audio>
             </div>
           );
         })}
