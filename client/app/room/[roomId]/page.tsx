@@ -455,8 +455,8 @@ export default function Room() {
 
   return (
     <>
-      <main className="grid lg:grid-cols-3 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
-        <div className="lg:w-[550px] h-[400px] rounded-2xl overflow-hidden border">
+      <main className="grid lg:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
+        <div className="h-[300px] rounded-2xl overflow-hidden border">
           <video
             ref={(vid) => {
               if (vid) {
@@ -471,7 +471,7 @@ export default function Room() {
         {streams.map((stream) => {
           return (
             <div
-              className="lg:w-[550px] h-[400px] rounded-2xl overflow-hidden"
+              className="h-[300px] rounded-2xl overflow-hidden border"
               key={stream.socketId}
             >
               <video
