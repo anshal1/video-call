@@ -172,56 +172,63 @@ export default function Room() {
     [handlePeerExists]
   );
 
-  const handleTurnOnCamera = useCallback(async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: false,
-    });
-    const videoTracks = stream.getVideoTracks()[0];
-    if (!localStream.current) {
-      const dummyStream = await handleDummyStream();
-      const newStream = new MediaStream([
-        dummyStream.getAudioTracks()[0],
-        videoTracks,
-      ]);
-      localStream.current = newStream;
-      setStream(newStream);
-      setCameraFeed(videoTracks);
-      setIsCameraOn(true);
-      return;
-    }
-    const dummStream = await handleDummyStream();
-    const dummyVideoTrack = dummStream.getVideoTracks()[0];
-    peerConnections.current.forEach((peer) => {
-      const sender = peer.peer.getSenders();
-      const videoSender = sender.find(
-        (sender) => sender.track?.kind === videoTracks.kind
-      );
-      console.log(videoSender);
-      if (videoSender) {
-        if (cameraFeed) {
-          videoSender.replaceTrack(dummyVideoTrack);
-        } else {
-          videoSender.replaceTrack(videoTracks);
-        }
+  const handleTurnOnCamera = useCallback(
+    async (rotate?: boolean) => {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: rotate ? "user" : "environment" },
+        audio: false,
+      });
+      const videoTracks = stream.getVideoTracks()[0];
+      if (!localStream.current) {
+        const dummyStream = await handleDummyStream();
+        const newStream = new MediaStream([
+          dummyStream.getAudioTracks()[0],
+          videoTracks,
+        ]);
+        localStream.current = newStream;
+        setStream(newStream);
+        setCameraFeed(videoTracks);
+        setIsCameraOn(true);
+        return;
       }
-    });
-    if (cameraFeed) {
-      localStream.current?.getVideoTracks()[0].stop();
-      localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
-      stream.getVideoTracks()[0].stop();
-      localStream.current?.addTrack(dummyVideoTrack);
-      setStream(new MediaStream(localStream.current!.getTracks()));
-      setIsCameraOn(false);
-      setCameraFeed(null);
-    } else {
-      localStream.current?.removeTrack(localStream.current.getVideoTracks()[0]);
-      localStream.current?.addTrack(videoTracks);
-      setStream(new MediaStream(localStream.current!.getTracks()));
-      setCameraFeed(videoTracks);
-      setIsCameraOn(true);
-    }
-  }, [cameraFeed, handleDummyStream]);
+      const dummStream = await handleDummyStream();
+      const dummyVideoTrack = dummStream.getVideoTracks()[0];
+      peerConnections.current.forEach((peer) => {
+        const sender = peer.peer.getSenders();
+        const videoSender = sender.find(
+          (sender) => sender.track?.kind === videoTracks.kind
+        );
+        console.log(videoSender);
+        if (videoSender) {
+          if (cameraFeed) {
+            videoSender.replaceTrack(dummyVideoTrack);
+          } else {
+            videoSender.replaceTrack(videoTracks);
+          }
+        }
+      });
+      if (cameraFeed) {
+        localStream.current?.getVideoTracks()[0].stop();
+        localStream.current?.removeTrack(
+          localStream.current.getVideoTracks()[0]
+        );
+        stream.getVideoTracks()[0].stop();
+        localStream.current?.addTrack(dummyVideoTrack);
+        setStream(new MediaStream(localStream.current!.getTracks()));
+        setIsCameraOn(false);
+        setCameraFeed(null);
+      } else {
+        localStream.current?.removeTrack(
+          localStream.current.getVideoTracks()[0]
+        );
+        localStream.current?.addTrack(videoTracks);
+        setStream(new MediaStream(localStream.current!.getTracks()));
+        setCameraFeed(videoTracks);
+        setIsCameraOn(true);
+      }
+    },
+    [cameraFeed, handleDummyStream]
+  );
 
   const handleToggleMic = useCallback(async () => {
     const audio = await navigator.mediaDevices.getUserMedia({
@@ -499,9 +506,11 @@ export default function Room() {
             </div>
           );
         })}
-        <div className="fixed bottom-0 left-0 w-full h-32 flex items-center justify-center gap-x-12">
+        <div className="fixed bottom-0 left-0 w-full h-32 flex items-center justify-center gap-x-12 overflow-auto">
           <button
-            onClick={handleTurnOnCamera}
+            onClick={() => {
+              handleTurnOnCamera(false);
+            }}
             className="cursor-pointer p-6 rounded-full border"
           >
             {isCamerOn ? (
@@ -519,6 +528,9 @@ export default function Room() {
                 height={48}
               />
             )}
+          </button>
+          <button className="cursor-pointer p-6 rounded-full border">
+            Front Camera
           </button>
           <button
             className="cursor-pointer p-6 rounded-full border"
