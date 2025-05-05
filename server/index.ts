@@ -8,15 +8,17 @@ const io = new Server(server, {
     origin: "*",
   },
 });
-
-let roomUsers: string[] = [];
+const roomMap: Map<string, string[]> = new Map();
 
 io.on("connection", (socket) => {
   console.log("User Connected", socket.id);
-  socket.on("join-room", () => {
+  socket.on("join-room", (roomId: string) => {
+    const roomExists = roomMap.get(roomId);
+    if (!roomExists) roomMap.set(roomId, []);
+    const roomUsers = roomMap.get(roomId)!;
     if (!roomUsers.includes(socket.id)) roomUsers.push(socket.id);
     console.log(roomUsers);
-    socket.join("video");
+    socket.join(roomId);
     io.to(socket.id).emit(
       "all-users",
       roomUsers.filter((id) => id !== socket.id)
@@ -51,18 +53,30 @@ io.on("connection", (socket) => {
         io.to(sentTo).emit("ice-candidate", iceCandidate, socket.id);
       }
     );
-    socket.on("user-left", () => {
+    socket.on("user-left", (roomId: string) => {
       console.log("User Left 2", socket.id);
-      socket.to("video").emit("user-left", socket.id);
-      socket.leave("video");
-      roomUsers = roomUsers.filter((id) => id !== socket.id);
+      const room = roomMap.get(roomId);
+      if (!room) return;
+      const roomUsers = roomMap.get(roomId)!;
+      roomMap.set(
+        roomId,
+        roomUsers.filter((id) => id !== socket.id)
+      );
+      socket.to(roomId).emit("user-left", socket.id);
+      socket.leave(roomId);
     });
   });
   socket.on("disconnect", () => {
-    roomUsers = roomUsers.filter((id) => id !== socket.id);
-    socket.leave("video");
-    socket.to("video").emit("user-left", socket.id);
-    console.log("User Left", socket.id);
+    const allRooms = Array.from(roomMap.keys());
+    allRooms.forEach((roomId) => {
+      const roomUsers = roomMap.get(roomId)!;
+      if (!roomUsers.includes(socket.id)) return;
+      roomMap.set(
+        roomId,
+        roomUsers.filter((id) => id !== socket.id)
+      );
+      socket.to(roomId).emit("user-left", socket.id);
+    });
   });
 });
 
