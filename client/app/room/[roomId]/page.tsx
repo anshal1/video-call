@@ -1,5 +1,6 @@
 "use client";
 import { useSocket } from "@/app/context/socket";
+import { useVideoCall } from "@/app/context/video-call";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -30,6 +31,7 @@ export default function Room() {
   const [isCamerOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
   const [isRearCameraOn, setIsRearCameraOn] = useState(false);
+  const { room } = useVideoCall();
 
   const handleGetDummyVideoTrack = useCallback(() => {
     const canvas = document.createElement("canvas");
@@ -377,15 +379,14 @@ export default function Room() {
   };
 
   useEffect(() => {
-    console.log("Test");
-    if (!socket) return;
-    socket.emit("join-room");
+    if (!socket || !room) return;
+    socket.emit("join-room", room);
     return () => {
       if (socket) {
         socket.off("join-room");
       }
     };
-  }, [socket]);
+  }, [room, socket]);
 
   useEffect(() => {
     if (!socket) return;
@@ -492,26 +493,24 @@ export default function Room() {
     };
   }, [handleAcceptAnswer, socket]);
 
-  useEffect(() => {
+  const handleCleanUp = () => {
     const peers = peerConnections;
-    return () => {
-      peers.current.forEach((peer) => {
-        peer.peer.close();
-      });
-      peerConnections.current = [];
-      remoteStreams.current = [];
-      localStream.current?.getTracks().forEach((track) => {
-        track.stop();
-      });
-      stream?.getTracks().forEach((track) => {
-        track.stop();
-      });
-      setStreams([]);
-      if (socket) {
-        socket.emit("user-left");
-      }
-    };
-  }, []);
+    peers.current.forEach((peer) => {
+      peer.peer.close();
+    });
+    peerConnections.current = [];
+    remoteStreams.current = [];
+    localStream.current?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    stream?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    setStreams([]);
+    if (socket) {
+      socket.emit("user-left", room);
+    }
+  };
 
   return (
     <>
@@ -621,6 +620,7 @@ export default function Room() {
           <Link href={"/"} className="cursor-pointer p-6 rounded-full border">
             <Image src="/home.png" width={48} height={48} alt="Share Screen" />
           </Link>
+          <button onClick={handleCleanUp}>Hang up</button>
         </div>
       </main>
     </>

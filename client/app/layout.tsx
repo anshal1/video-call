@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SocketContext } from "./context/socket";
+import VideoCallContext from "./context/video-call";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SocketContext>{children}</SocketContext>
+        <SocketContext>
+          <VideoCallContext>{children}</VideoCallContext>
+        </SocketContext>
       </body>
     </html>
   );
