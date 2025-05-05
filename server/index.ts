@@ -62,8 +62,8 @@ io.on("connection", (socket) => {
         roomId,
         roomUsers.filter((id) => id !== socket.id)
       );
-      socket.to(roomId).emit("user-left", socket.id);
       socket.leave(roomId);
+      socket.to(roomId).emit("user-left", socket.id);
     });
   });
   socket.on("disconnect", () => {
@@ -75,6 +75,7 @@ io.on("connection", (socket) => {
         roomId,
         roomUsers.filter((id) => id !== socket.id)
       );
+      socket.leave(roomId);
       socket.to(roomId).emit("user-left", socket.id);
     });
   });

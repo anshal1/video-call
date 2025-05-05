@@ -3,35 +3,33 @@ import { useSocket } from "@/app/context/socket";
 import { useVideoCall } from "@/app/context/video-call";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-
-interface Peers {
-  peer: RTCPeerConnection;
-  socketId: string;
-  remoteDescription?: boolean;
-}
-interface RemoteStreams {
-  stream: MediaStream;
-  socketId: string;
-}
+import React, { useCallback, useEffect } from "react";
 
 export default function Room() {
-  const peerConnections = useRef<Peers[]>([]);
-  const remoteStreams = useRef<RemoteStreams[]>([]);
-  const [streams, setStreams] = useState<RemoteStreams[]>([]);
   const socket = useSocket();
-  const localStream = useRef<MediaStream | null>(null);
-  const [stream, setStream] = useState<null | MediaStream>(null);
-  const [cameraFeed, setCameraFeed] = useState<null | MediaStreamTrack>(null);
-  const [rearCameraFeed, setRearCameraFeed] = useState<null | MediaStreamTrack>(
-    null
-  );
-  const [audioFeed, setAudioFeed] = useState<null | MediaStreamTrack>(null);
-  const isCaller = useRef(false);
-  const [isCamerOn, setIsCameraOn] = useState(false);
-  const [isMicOn, setIsMicOn] = useState(false);
-  const [isRearCameraOn, setIsRearCameraOn] = useState(false);
-  const { room } = useVideoCall();
+  const {
+    room,
+    peerConnections,
+    remoteStreams,
+    streams,
+    setStreams,
+    localStream,
+    stream,
+    setStream,
+    cameraFeed,
+    setCameraFeed,
+    rearCameraFeed,
+    setRearCameraFeed,
+    audioFeed,
+    setAudioFeed,
+    isCaller,
+    isCamerOn,
+    setIsCameraOn,
+    isMicOn,
+    setIsMicOn,
+    isRearCameraOn,
+    setIsRearCameraOn,
+  } = useVideoCall();
 
   const handleGetDummyVideoTrack = useCallback(() => {
     const canvas = document.createElement("canvas");
@@ -162,6 +160,7 @@ export default function Room() {
       handlePeerExists,
       peerConnections,
       remoteStreams,
+      setStreams,
       socket,
     ]
   );
@@ -230,7 +229,16 @@ export default function Room() {
       setRearCameraFeed(null);
       setIsCameraOn(true);
     }
-  }, [cameraFeed, handleDummyStream]);
+  }, [
+    cameraFeed,
+    handleDummyStream,
+    localStream,
+    peerConnections,
+    setCameraFeed,
+    setIsCameraOn,
+    setRearCameraFeed,
+    setStream,
+  ]);
   const handleTurnOnRearCamera = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" },
@@ -283,7 +291,16 @@ export default function Room() {
       setCameraFeed(null);
       setIsRearCameraOn(true);
     }
-  }, [handleDummyStream, rearCameraFeed]);
+  }, [
+    handleDummyStream,
+    localStream,
+    peerConnections,
+    rearCameraFeed,
+    setCameraFeed,
+    setIsRearCameraOn,
+    setRearCameraFeed,
+    setStream,
+  ]);
 
   const handleToggleMic = useCallback(async () => {
     const audio = await navigator.mediaDevices.getUserMedia({
@@ -330,7 +347,15 @@ export default function Room() {
       setAudioFeed(audioTrack);
       setIsMicOn(true);
     }
-  }, [audioFeed, handleDummyStream]);
+  }, [
+    audioFeed,
+    handleDummyStream,
+    localStream,
+    peerConnections,
+    setAudioFeed,
+    setIsMicOn,
+    setStream,
+  ]);
 
   const handleScreenShare = async () => {
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -481,8 +506,12 @@ export default function Room() {
     handleCreatePeerConnections,
     handleDummyStream,
     handlePeerExists,
+    isCaller,
+    localStream,
     peerConnections,
     remoteStreams,
+    setStream,
+    setStreams,
     socket,
   ]);
 
