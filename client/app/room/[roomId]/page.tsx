@@ -1,8 +1,10 @@
 "use client";
+import Video from "@/app/component/video";
 import { useSocket } from "@/app/context/socket";
 import { useVideoCall } from "@/app/context/video-call";
 import Image from "next/image";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import React, { useCallback, useEffect } from "react";
 
 export default function Room() {
@@ -30,6 +32,8 @@ export default function Room() {
     isRearCameraOn,
     setIsRearCameraOn,
   } = useVideoCall();
+
+  const { roomId }: { roomId: string } = useParams();
 
   const handleGetDummyVideoTrack = useCallback(() => {
     const canvas = document.createElement("canvas");
@@ -404,14 +408,14 @@ export default function Room() {
   };
 
   useEffect(() => {
-    if (!socket || !room) return;
-    socket.emit("join-room", room);
+    if (!socket || !roomId) return;
+    socket.emit("join-room", roomId);
     return () => {
       if (socket) {
         socket.off("join-room");
       }
     };
-  }, [room, socket]);
+  }, [roomId, socket]);
 
   useEffect(() => {
     if (!socket) return;
@@ -543,35 +547,14 @@ export default function Room() {
 
   return (
     <>
-      <main className="grid lg:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
-        <div className="h-[300px] rounded-2xl overflow-hidden border">
-          <video
-            ref={(vid) => {
-              if (vid) {
-                vid.srcObject = stream;
-              }
-            }}
-            autoPlay
-            muted
-            className="w-full h-full block object-fill"
-          ></video>
+      <main className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 relative h-screen overflow-y-auto p-3">
+        <div>
+          <Video stream={stream} />
         </div>
         {streams.map((stream) => {
           return (
-            <div
-              className="h-[300px] rounded-2xl overflow-hidden border"
-              key={stream.socketId}
-            >
-              <video
-                autoPlay
-                ref={(vid) => {
-                  if (vid) {
-                    vid.srcObject = stream.stream;
-                  }
-                }}
-                muted={true}
-                className="w-full h-full block object-fill"
-              ></video>
+            <div key={stream.socketId}>
+              <Video stream={stream.stream} />
               <audio
                 controls
                 autoPlay
@@ -646,10 +629,13 @@ export default function Room() {
               alt="Share Screen"
             />
           </button>
-          <Link href={"/"} className="cursor-pointer p-6 rounded-full border">
+          <Link
+            href={"/"}
+            className="cursor-pointer p-6 rounded-full border"
+            onClick={handleCleanUp}
+          >
             <Image src="/home.png" width={48} height={48} alt="Share Screen" />
           </Link>
-          <button onClick={handleCleanUp}>Hang up</button>
         </div>
       </main>
     </>
