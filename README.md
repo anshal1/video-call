@@ -1,9 +1,5 @@
 # Huddle — Peer-to-Peer Video Calling
 
-A full-stack, real-time group video calling application built with WebRTC and WebSockets. Create a room, share the link, and talk face-to-face — no accounts, no downloads, no plugins.
-
-![Huddle screenshot](https://github.com/user-attachments/assets/fb8cbeef-cdfb-4b20-bdae-6932857e1de5)
-
 ## Features
 
 - **Group video calls** — mesh-based peer-to-peer connections between all participants in a room
